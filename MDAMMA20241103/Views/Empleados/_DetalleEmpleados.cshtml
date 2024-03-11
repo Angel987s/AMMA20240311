@@ -1,0 +1,95 @@
+﻿@{
+    Layout = null;
+}
+@model IEnumerable<DetalleEmpleado>
+<input type="hidden" name="accion" value="@ViewBag.Accion" />
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.Nombre)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Apellido)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Telefono)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Email)
+            </th>
+            <th>
+                @if (ViewBag.Accion == "Create" || ViewBag.Accion == "Edit")
+                {
+                    <button type="submit" class="btn btn-primary" formaction="@Url.Action("AgregarDetalles")">Agregar</button>
+                }
+
+            </th>
+        </tr>
+
+    </thead>
+    <tbody>
+        @{
+            int index = -1;
+        }
+        @if (Model != null && Model.Count() > 0)
+        {
+            @foreach (var item in Model)
+            {
+                index++;
+                // var hidde = "table";
+                if (item.Id > -1)
+                {
+                    <tr>
+                        <td>
+                            <input type="hidden" value="@item.Id" name="DetalleEmpleados[@index].Id">
+                            <input type="hidden" value="@item.EmpleadoId" name="DetalleEmpleados[@index].EmpleadoId">
+                            <input class="form-control" data-readonly type="text" name="DetalleEmpleados[@index].Nombre" value="@item.Nombre">
+                        </td>
+                        <td>
+                            <input class="form-control" data-readonly type="text" name="DetalleEmpleados[@index].Apellido" value="@item.Apellido">
+                        </td>
+                        <td>
+                            <input class="form-control" data-readonly type="number" name="DetalleEmpleados[@index].Apellido" value="@item.Apellido">
+                        </td>
+                        <td>
+                            <input class="form-control" data-readonly type="text" name="DetalleEmpleados[@index].Email" value="@item.Email">
+                        </td>
+                        <td>
+                            @if (ViewBag.Accion == "Create" || ViewBag.Accion == "Edit")
+                            {
+                                <button name="index" value="@index" class="btn btn-primary" type="submit" formaction="@Url.Action("EliminarDetalles")">Eliminar</button>
+                            }
+
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    <tr style="display:none">
+                        <td>
+                            <input type="hidden" value="@item.Id" name="DetalleEmpleados[@index].Id">
+                            <input type="hidden" value="@item.EmpleadoId" name="DetalleEmpleados[@index].EmpleadoId">
+                            <input type="hidden" name="DetalleEmpleados[@index].Nombre" value="@item.Nombre">
+                            <input type="hidden" name="DetalleEmpleados[@index].Apellido" value="@item.Apellido">
+                            <input type="hidden" name="DetalleEmpleados[@index].Telefono" value="@item.Telefono">
+                            <input type="hidden" name="DetalleEmpleados[@index].Email" value="@item.Email">
+                        </td>
+                    </tr>                   
+                }
+            }
+        }
+
+    </tbody>
+</table>
+@if (ViewBag.Accion == "Details" || ViewBag.Accion == "Delete")
+{
+    <script>       
+        const readOnly = document.querySelectorAll("*[data-readonly]");
+        for (var i = 0; i < readOnly.length; i++) {
+            const item = readOnly[i];
+            item.setAttribute("readonly",true);
+        }
+
+    </script>
+}

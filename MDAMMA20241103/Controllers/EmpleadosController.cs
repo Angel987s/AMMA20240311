@@ -27,25 +27,33 @@ namespace MDAMMA20241103.Controllers
         // GET: Empleados/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null)
+            if (id == null || _context.Empleados == null)
             {
                 return NotFound();
             }
 
             var empleado = await _context.Empleados
+                .Include(s => s.DetalleEmpleados)
                 .FirstOrDefaultAsync(m => m.Id == id);
             if (empleado == null)
             {
                 return NotFound();
             }
-
+            ViewBag.Accion = "Details";
             return View(empleado);
         }
 
         // GET: Empleados/Create
         public IActionResult Create()
         {
-            return View();
+            var empleado = new Empleado();
+            empleado.DetalleEmpleados = new List<DetalleEmpleado>();
+            empleado.DetalleEmpleados.Add(new DetalleEmpleado
+            {
+                
+            });
+            ViewBag.Accion = "Create";
+            return View(empleado);
         }
 
         // POST: Empleados/Create
@@ -53,15 +61,36 @@ namespace MDAMMA20241103.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Nombre,Apellido,Email,FechaContratacion,Salario")] Empleado empleado)
+        public async Task<IActionResult> Create([Bind("Id,Nombre,Apellido,Email,FechaContratacion,Salario,DetalleEmpleados")] Empleado empleado)
         {
-            if (ModelState.IsValid)
+            
+            _context.Add(empleado);
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+
+        public ActionResult AgregarDetalles([Bind("Id,Nombre,Apellido,Email,FechaContratacion,Salario,DetalleEmpleados")] Empleado empleado, string accion)
+        {
+            empleado.DetalleEmpleados.Add(new DetalleEmpleado {});
+            ViewBag.Accion = accion;
+            return View(accion, empleado);
+        }
+
+        public ActionResult EliminarDetalles([Bind("Id,Nombre,Apellido,Email,FechaContratacion,Salario,DetalleEmpleados")] Empleado empleado,
+        int index, string accion)
+        {
+            var det = empleado.DetalleEmpleados.ElementAtOrDefault(index);
+            if (accion == "Edit" && det.Id > 0)
             {
-                _context.Add(empleado);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                det.Id = det.Id * -1;
             }
-            return View(empleado);
+            else
+            {
+                empleado.DetalleEmpleados.Remove(det);
+            }
+
+            ViewBag.Accion = accion;
+            return View(accion, empleado);
         }
 
         // GET: Empleados/Edit/5
@@ -72,7 +101,10 @@ namespace MDAMMA20241103.Controllers
                 return NotFound();
             }
 
-            var empleado = await _context.Empleados.FindAsync(id);
+            var empleado = await _context.Empleados
+                .Include(s => s.DetalleEmpleados)
+                .FirstAsync(s => s.Id == id);
+               
             if (empleado == null)
             {
                 return NotFound();
@@ -85,34 +117,68 @@ namespace MDAMMA20241103.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,Nombre,Apellido,Email,FechaContratacion,Salario")] Empleado empleado)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,Nombre,Apellido,Email,FechaContratacion,Salario,DetalleEmpleados")] Empleado empleado)
         {
             if (id != empleado.Id)
             {
                 return NotFound();
             }
 
-            if (ModelState.IsValid)
+            try
             {
-                try
+                // Obtener los datos de la base de datos que van a ser modificados
+                var facturaUpdate = await _context.Empleados
+                        .Include(s => s.DetalleEmpleados)
+                        .FirstAsync(s => s.Id == empleado.Id);
+                facturaUpdate.Nombre = empleado.Nombre;
+                facturaUpdate.Apellido = empleado.Apellido;
+                facturaUpdate.Email = empleado.Email;
+                facturaUpdate.FechaContratacion = empleado.FechaContratacion;
+                facturaUpdate.Salario = empleado.Salario;
+                // Obtener todos los detalles que seran nuevos y agregarlos a la base de datos
+                var detNew = empleado.DetalleEmpleados.Where(s => s.Id == 0);
+                foreach (var d in detNew)
                 {
-                    _context.Update(empleado);
-                    await _context.SaveChangesAsync();
+                    facturaUpdate.DetalleEmpleados.Add(d);
                 }
-                catch (DbUpdateConcurrencyException)
+                // Obtener todos los detalles que seran modificados y actualizar a la base de datos
+                var detUpdate = empleado.DetalleEmpleados.Where(s => s.Id > 0);
+                foreach (var d in detUpdate)
                 {
-                    if (!EmpleadoExists(empleado.Id))
+                    var det = facturaUpdate.DetalleEmpleados.FirstOrDefault(s => s.Id == d.Id);
+                    det.Nombre = d.Nombre;
+                    det.Apellido = d.Apellido;
+                    det.Telefono = d.Telefono;
+                    det.Email = d.Email;
+                }
+                // Obtener todos los detalles que seran eliminados y actualizar a la base de datos
+                var delDet = empleado.DetalleEmpleados.Where(s => s.Id < 0).ToList();
+                if (delDet != null && delDet.Count > 0)
+                {
+                    foreach (var d in delDet)
                     {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
+                        d.Id = d.Id * -1;
+                        var det = facturaUpdate.DetalleEmpleados.FirstOrDefault(s => s.Id == d.Id);
+                        _context.Remove(det);
+                        // facturaUpdate.DetFacturaVenta.Remove(det);
                     }
                 }
-                return RedirectToAction(nameof(Index));
+                // Aplicar esos cambios a la base de datos
+                _context.Update(facturaUpdate);
+                await _context.SaveChangesAsync();
             }
-            return View(empleado);
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!EmpleadoExists(empleado.Id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: Empleados/Delete/5
